@@ -6,8 +6,6 @@
 #include <condition_variable>
 #include <atomic>
 
-#define DEFAULT_MAX_QUEUE_SIZE  10
-
 template<typename QueueType>
 class ThreadSafeQueue 
 {
@@ -16,49 +14,59 @@ class ThreadSafeQueue
     std::mutex m_lock;
     std::condition_variable m_cv;
     std::atomic<bool> m_shutting_down;
-    const std::size_t m_max_queue_size;
 
   public:
-    ThreadSafeQueue() = delete;
-    ThreadSafeQueue(std::size_t max_queue_size = DEFAULT_MAX_QUEUE_SIZE);
+    ThreadSafeQueue(): m_shutting_down(false) {};
     ~ThreadSafeQueue() {};
-
-    QueueType& front(void) const;  
-    
-    QueueType& back(void) const;
-    
+ 
+    /** 
+        \brief Check if the queue is empty.
+        \returns Returns true if queue is empty.
+    **/
     bool empty(void) const;
     
+    /** 
+        \brief Get the size of the queue.
+        \returns Returns the number of elements in the queue.
+    **/
     std::size_t size(void) const;
     
+    /** 
+        \brief Push to the back of the queue. NOTE: The value pushed is moved (std::move) 
+        onto the queue.
+        \param[in] value Value to push to the queue.
+    **/
     void push(const QueueType& value);
+
+    /** 
+        \brief Blocking call to retrieve the front element of the queue.
+        \param[in] value Reference to the retrieved value.
+        \returns true if element is successfully retrieved, false shutdown() was called.
+    **/
+    bool pop(QueueType& value);  
     
-    QueueType pop(void);  
+    /** 
+        \brief Blocking call to retrieve the front element of the queue.
+        \param[in] value Reference to the retrieved value
+        \param[in] time Duration to wait for retrieving the front element.
+        \returns true if element is successfully retrieved, false shutdown() was called.
+    **/
+    template<typename _Rep, typename _Period>
+    std::cv_status pop(QueueType& value, const std::chrono::duration<_Rep, _Period>& time);
 
-    void pop(QueueType& value);  
+    /** 
+        \brief Non-Blocking call to retrieve the front element of the queue.
+        \param[in] value Reference to the retrieved value
+        \returns true if element is successfully retrieved, false if the queue is empty.
+    **/
+    bool try_pop(QueueType& value);
 
-    void shutdown(void) const;
+    /** 
+        \brief Initialize shutdown of the queue. Need to call this function to exit the
+        blocking pop(&) function when deconstructing. Otherwise, it will block indefinately.
+    **/
+    void shutdown(const bool state);
 };
-
-template<typename QueueType>
-ThreadSafeQueue<QueueType>::ThreadSafeQueue(std::size_t max_queue_size)
-: m_max_queue_size(max_queue_size), m_shutting_down(false) 
-{
-}
-
-template<typename QueueType>
-QueueType& ThreadSafeQueue<QueueType>::front(void) const 
-{
-    std::lock_guard<std::mutex> ulock(m_lock);
-    return m_queue.front();
-}
-
-template<typename QueueType>
-QueueType& ThreadSafeQueue<QueueType>::back(void) const 
-{
-    std::lock_guard<std::mutex> ulock(m_lock);
-    return m_queue.back();
-}
 
 template<typename QueueType>
 bool ThreadSafeQueue<QueueType>::empty(void) const 
@@ -79,36 +87,60 @@ void ThreadSafeQueue<QueueType>::push(const QueueType& value)
 {
     {
         std::lock_guard<std::mutex> lock(m_lock);
-        m_queue.push(value);
+        m_queue.push(std::move(value));
     }
     m_cv.notify_one();
 }
 
 template<typename QueueType>
-QueueType ThreadSafeQueue<QueueType>::pop(void) 
+bool ThreadSafeQueue<QueueType>::pop(QueueType& value) 
 {
-    std::lock_guard<std::mutex> ulock(m_lock);
+    std::unique_lock<std::mutex> ulock(m_lock);
     m_cv.wait(ulock, [this](){ return (!m_queue.empty() || m_shutting_down.load()); });
-
-    QueueType value = m_queue.front();
-    m_queue.pop();
-    return value;
-}
-
-template<typename QueueType>
-void ThreadSafeQueue<QueueType>::pop(QueueType& value) 
-{
-    std::lock_guard<std::mutex> ulock(m_lock);
-    m_cv.wait(ulock, [this](){ return (!m_queue.empty() || m_shutting_down.load()); });
+    
+    if(m_shutting_down.load())
+    {
+        return false;
+    }
 
     value = std::move(m_queue.front());
     m_queue.pop();
+    return true;
+}
+    
+template<typename QueueType>
+template<typename _Rep, typename _Period>
+std::cv_status ThreadSafeQueue<QueueType>::pop(QueueType& value, const std::chrono::duration<_Rep, _Period>& time)
+{
+    std::unique_lock<std::mutex> ulock(m_lock);
+    if(m_cv.wait_for(ulock, time, [this](){ return (!m_queue.empty() || m_shutting_down.load()); }) == std::cv_status::timeout)
+    {
+        return std::cv_status::timeout;
+    }
+
+    value = std::move(m_queue.front());
+    m_queue.pop();
+    return std::cv_status::no_timeout;
 }
 
 template<typename QueueType>
-void ThreadSafeQueue<QueueType>::shutdown(void) const 
+bool ThreadSafeQueue<QueueType>::try_pop(QueueType& value)
 {
-    m_shutting_down.store(true);
+    std::unique_lock<std::mutex> ulock(m_lock);
+    if(m_queue.empty())
+    {
+        return false;
+    }
+
+    value = std::move(m_queue.front());
+    m_queue.pop();
+    return true;
+}
+
+template<typename QueueType>
+void ThreadSafeQueue<QueueType>::shutdown(const bool state) 
+{
+    m_shutting_down.store(state);
 }
 
 #endif /* THREAD_SAFE_QUEUE_H_ */

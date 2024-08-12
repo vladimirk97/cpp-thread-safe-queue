@@ -1,10 +1,12 @@
 if(BUILD_TESTING)
+    set(FILE thread_safe_queue_test)
+    add_executable(${FILE} ${FILE}.cpp)
 
-    add_executable(hello_test hello_test.cpp)
-    target_link_libraries(hello_test
+    target_link_libraries(${FILE}
         PRIVATE GTest::gtest_main
+        PUBLIC thread_safe_queue
     )
 
     include(GoogleTest)
-    gtest_discover_tests(hello_test)
+    gtest_discover_tests(${FILE})
 endif()

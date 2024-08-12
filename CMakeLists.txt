@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30.2)
+cmake_minimum_required(VERSION 3.22.1...3.30.2)
 
 set(PROJECT thread_safe_queue)
 
