@@ -31,8 +31,9 @@
 *.out
 *.app
 
-# CMake build
+# CMake build/install
 build/
+install/
 
 # VS Code
 .vscode/

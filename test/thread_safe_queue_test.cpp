@@ -5,7 +5,7 @@
 TEST(ThreadSafeQueue, EmptyTest) 
 {
     // Create queue
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     // Queue should be empty
     EXPECT_EQ(tsq.empty(), true);
     // Add element to queue
@@ -16,7 +16,7 @@ TEST(ThreadSafeQueue, EmptyTest)
 
 TEST(ThreadSafeQueue, SizeTest) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     // Queue should be empty, size 0
     EXPECT_EQ(tsq.size(), 0);
     // Add element to queue
@@ -29,7 +29,7 @@ TEST(ThreadSafeQueue, SizeTest)
 TEST(ThreadSafeQueue, TryPopEmpty) 
 {
     // The Blocking call  
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
     EXPECT_EQ(tsq.try_pop(return_val), false);
     EXPECT_EQ(return_val, 0);
@@ -37,7 +37,7 @@ TEST(ThreadSafeQueue, TryPopEmpty)
 
 TEST(ThreadSafeQueue, TryPopHasElement) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
     int send_val = 1;
     tsq.push(send_val);
@@ -47,7 +47,7 @@ TEST(ThreadSafeQueue, TryPopHasElement)
 
 TEST(ThreadSafeQueue, TryPopMultiple) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
 
     for(int i = 1; i < 3; i++)
@@ -62,7 +62,7 @@ TEST(ThreadSafeQueue, TryPopMultiple)
 
 TEST(ThreadSafeQueue, PopTimeoutEmpty) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
     auto start_time = std::chrono::system_clock::now().time_since_epoch();
     EXPECT_EQ(tsq.pop(return_val, std::chrono::seconds(1)), false);
@@ -75,7 +75,7 @@ TEST(ThreadSafeQueue, PopTimeoutEmpty)
 
 TEST(ThreadSafeQueue, PopTimeoutHasElement) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
     int send_val = 1;
     tsq.push(send_val);
@@ -91,11 +91,11 @@ TEST(ThreadSafeQueue, PopTimeoutHasElement)
 
 TEST(ThreadSafeQueue, PopBlockingEmptyShutdown) 
 {
-    auto tsq = std::make_shared<ThreadSafeQueue<int>>();
+    auto tsq = std::make_shared<TSQ::ThreadSafeQueue<int>>();
     auto value = std::make_shared<int>(0);
     auto status = std::make_shared<bool>(false);
 
-    std::thread t1([this](std::shared_ptr<ThreadSafeQueue<int>> queue, std::shared_ptr<int> val, std::shared_ptr<bool> stat){ 
+    std::thread t1([this](std::shared_ptr<TSQ::ThreadSafeQueue<int>> queue, std::shared_ptr<int> val, std::shared_ptr<bool> stat){ 
         *stat = queue->pop(*val);
     }, tsq, value, status);
     
@@ -111,7 +111,7 @@ TEST(ThreadSafeQueue, PopBlockingEmptyShutdown)
 
 TEST(ThreadSafeQueue, PopBlockingHasElements) 
 {
-    ThreadSafeQueue<int> tsq{};
+    TSQ::ThreadSafeQueue<int> tsq{};
     int return_val = 0;
     int send_val = 1;
     tsq.push(send_val);
@@ -121,11 +121,11 @@ TEST(ThreadSafeQueue, PopBlockingHasElements)
 
 TEST(ThreadSafeQueue, PopBlockingElementAddedAfterBlocking) 
 {
-    auto tsq = std::make_shared<ThreadSafeQueue<int>>();
+    auto tsq = std::make_shared<TSQ::ThreadSafeQueue<int>>();
     auto value = std::make_shared<int>(0);
     auto status = std::make_shared<bool>(false);
     
-    std::thread t1([this](std::shared_ptr<ThreadSafeQueue<int>> queue, std::shared_ptr<int> val, std::shared_ptr<bool> stat){ 
+    std::thread t1([this](std::shared_ptr<TSQ::ThreadSafeQueue<int>> queue, std::shared_ptr<int> val, std::shared_ptr<bool> stat){ 
         *stat = queue->pop(*val);
     }, tsq, value, status);
 
@@ -140,7 +140,7 @@ TEST(ThreadSafeQueue, PopBlockingElementAddedAfterBlocking)
     t1.join();
 }
 
-void producer(ThreadSafeQueue<int>& queue) 
+void producer(TSQ::ThreadSafeQueue<int>& queue) 
 {
     for(int i = 1; i < 3; i++)
         queue.push(i);
@@ -148,7 +148,7 @@ void producer(ThreadSafeQueue<int>& queue)
     queue.shutdown(true);
 }
 
-void consumer(ThreadSafeQueue<int>& queue) 
+void consumer(TSQ::ThreadSafeQueue<int>& queue) 
 {
     int item = 0;
     bool status = false;
@@ -164,7 +164,7 @@ void consumer(ThreadSafeQueue<int>& queue)
 
 TEST(ThreadSafeQueue, PopBlockingElementAddedAndShutdownBeforePop) 
 {
-    ThreadSafeQueue<int> tsq;
+    TSQ::ThreadSafeQueue<int> tsq;
     std::thread t1(producer, std::ref(tsq));
     // Wait until thread t1 finish all operations
     std::this_thread::sleep_for(std::chrono::milliseconds(100));

@@ -5,7 +5,10 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <chrono>
 
+namespace TSQ
+{
 template<typename QueueType>
 class ThreadSafeQueue 
 {
@@ -148,4 +151,5 @@ void ThreadSafeQueue<QueueType>::shutdown(const bool state)
     m_cv.notify_all();
 }
 
+} // namespace TSQ
 #endif /* THREAD_SAFE_QUEUE_H_ */
